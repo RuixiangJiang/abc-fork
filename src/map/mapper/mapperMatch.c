@@ -17,11 +17,38 @@
 ***********************************************************************/
 
 #include "mapperInt.h"
+#include <ctype.h>
 
 #include "misc/util/utilNam.h"
 #include "map/scl/sclCon.h"
 
 ABC_NAMESPACE_IMPL_START
+
+int Map_SuperIsAllowedInvNand( Map_Super_t *pSuper){
+  if ( !pSuper || !pSuper->pRoot ) return 0;
+  const char *n = Mio_GateReadName( pSuper->pRoot );
+  if ( !n || !*n ) return 0;
+  // case-insensitive prefix checks: "inv", "not", "nand"
+  // also allow Liberty-style names like "INV_X1", "NAND2_X1"
+  // normalize first 5 chars to lowercase for cheap CI compare
+  char b0 = tolower((unsigned char)n[0]);
+  char b1 = tolower((unsigned char)n[1]);
+  char b2 = tolower((unsigned char)n[2]);
+  char b3 = tolower((unsigned char)n[3]);
+  char b4 = tolower((unsigned char)n[4]);
+  // "inv" or "not"
+  if ((b0=='i' && b1=='n' && b2=='v') ||
+      (b0=='n' && b1=='o' && b2=='t'))
+      return 1;
+  // "nand" or "nand2"/"nand3"/"nand4" etc., or "NAND*_..."
+  if (b0=='n' && b1=='a' && b2=='n' && b3=='d')
+      return 1;
+  // Liberty-style "INV_" / "NAND"
+  if ((b0=='i' && b1=='n' && b2=='v' && n[3]=='_') ||
+      (b0=='n' && b1=='a' && b2=='n' && b3=='d'))
+      return 1;
+  return 0;
+}
 
 
 /*
@@ -76,6 +103,16 @@ void Map_MatchClean( Map_Match_t * pMatch )
 ***********************************************************************/
 int Map_MatchCompare( Map_Man_t * pMan, Map_Match_t * pM1, Map_Match_t * pM2, int fDoingArea )
 {
+  // Hard preference: if only one candidate is INV/NAND, pick it.
+  if ( pM1 && pM1->pSuperBest && pM2 && pM2->pSuperBest )
+  {
+      int a1 = Map_SuperIsAllowedInvNand( pM1->pSuperBest );
+      int a2 = Map_SuperIsAllowedInvNand( pM2->pSuperBest );
+      if ( a1 && !a2 ) return 0; // keep current best
+      if ( !a1 && a2 ) return 1; // promote candidate
+      // if both allowed or both disallowed, fall through to normal tie-breakers
+  }
+
 //    if ( pM1->pSuperBest == pM2->pSuperBest )
 //        return 0;
     if ( !fDoingArea )

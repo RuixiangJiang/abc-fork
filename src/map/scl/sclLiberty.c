@@ -788,6 +788,9 @@ long Scl_LibertyReadCellOutputNum( Scl_Tree_t * p, Scl_Item_t * pCell )
   SeeAlso     []
 
 ***********************************************************************/
+static inline int Scl_CellIsAllowed(const char* n) {
+  return n && (0==strncmp(n,"INV_",4) || 0==strncmp(n,"NAND2_",6) || 0==strncmp(n,"DFFRS_",6) || 0==strcmp(n,"BUF_X1"));
+}
 Vec_Str_t * Scl_LibertyReadGenlibStr( Scl_Tree_t * p, int fVerbose, SC_DontUse dont_use )
 {
     Vec_Str_t * vStr;
@@ -798,14 +801,17 @@ Vec_Str_t * Scl_LibertyReadGenlibStr( Scl_Tree_t * p, int fVerbose, SC_DontUse d
     Vec_StrPrintStr( vStr, "GATE          _const1_  0.000000  z=CONST1;\n" );
     Scl_ItemForEachChildName( p, Scl_LibertyRoot(p), pCell, "cell" )
     {
+      // const char *name = Scl_LibertyReadString(p, pCell->Head);
+      // printf(  "DBG: consider cell \"%s\".\n", name );
+
         if ( Scl_LibertyReadCellIsFlop(p, pCell) )
         {
             if ( fVerbose )  printf( "Scl_LibertyReadGenlib() skipped sequential cell \"%s\".\n", Scl_LibertyReadString(p, pCell->Head) );
             continue;
         }
-        if ( Scl_LibertyReadCellIsDontUse(p, pCell, dont_use) )
+        if ( Scl_LibertyReadCellIsDontUse(p, pCell, dont_use)  || !Scl_CellIsAllowed(Scl_LibertyReadString(p, pCell->Head)))
         {
-            if ( fVerbose )  printf( "Scl_LibertyReadGenlib() skipped cell \"%s\" due to dont_use attribute.\n", Scl_LibertyReadString(p, pCell->Head) );
+            if ( fVerbose )  printf( "bbb Scl_LibertyReadGenlib() skipped cell \"%s\" due to dont_use attribute.\n", Scl_LibertyReadString(p, pCell->Head) );
             continue;
         }
         if ( Scl_LibertyReadCellIsThreeState(p, pCell) )
@@ -818,6 +824,10 @@ Vec_Str_t * Scl_LibertyReadGenlibStr( Scl_Tree_t * p, int fVerbose, SC_DontUse d
             if ( fVerbose )  printf( "Scl_LibertyReadGenlib() skipped cell \"%s\" without logic function.\n", Scl_LibertyReadString(p, pCell->Head) );
             continue;
         }
+      // if ( !Scl_CellIsAllowed(name) ) {
+          // printf(  "DBG: skip (not INV_/NAND2_/DFFRS_): \"%s\".\n", name );
+          // continue;
+      // }
         // iterate through output pins
         Scl_ItemForEachChildName( p, pCell, pOutput, "pin" )
         {
@@ -1542,15 +1552,18 @@ Vec_Str_t * Scl_LibertyReadSclStr( Scl_Tree_t * p, int fVerbose, int fVeryVerbos
     nCells = 0;
     Scl_ItemForEachChildName( p, Scl_LibertyRoot(p), pCell, "cell" )
     {
+      // char *name = Scl_LibertyReadString(p, pCell->Head);
+      // printf( "DBG: consider cell \"%s\".\n", name );
+
         if ( Scl_LibertyReadCellIsFlop(p, pCell) )
         {
             if ( fVeryVerbose )  printf( "Scl_LibertyReadGenlib() skipped sequential cell \"%s\".\n", Scl_LibertyReadString(p, pCell->Head) );
             nSkipped[0]++;
             continue;
         }
-        if ( Scl_LibertyReadCellIsDontUse(p, pCell, dont_use) )
+        if ( Scl_LibertyReadCellIsDontUse(p, pCell, dont_use) || !Scl_CellIsAllowed(Scl_LibertyReadString(p, pCell->Head)))
         {
-            if ( fVeryVerbose )  printf( "Scl_LibertyReadGenlib() skipped cell \"%s\" due to dont_use attribute.\n", Scl_LibertyReadString(p, pCell->Head) );
+            if ( fVeryVerbose )  printf( "ddd Scl_LibertyReadGenlib() skipped cell \"%s\" due to dont_use attribute.\n", Scl_LibertyReadString(p, pCell->Head) );
             nSkipped[3]++;
             continue;
         }
@@ -1578,6 +1591,10 @@ Vec_Str_t * Scl_LibertyReadSclStr( Scl_Tree_t * p, int fVerbose, int fVeryVerbos
             nSkipped[5]++;
             continue;
         }
+      // if ( !Scl_CellIsAllowed(name) ) {
+          // printf( "DBG: skip (not INV_/NAND2_/DFFRS_): \"%s\".\n", name );
+          // continue;
+      // }
         nCells++;
     }
     // read cells
@@ -1588,7 +1605,7 @@ Vec_Str_t * Scl_LibertyReadSclStr( Scl_Tree_t * p, int fVerbose, int fVeryVerbos
     {
         if ( Scl_LibertyReadCellIsFlop(p, pCell) )
             continue;
-        if ( Scl_LibertyReadCellIsDontUse(p, pCell, dont_use) )
+        if ( Scl_LibertyReadCellIsDontUse(p, pCell, dont_use)  || !Scl_CellIsAllowed(Scl_LibertyReadString(p, pCell->Head)))
             continue;
         if ( Scl_LibertyReadCellIsThreeState(p, pCell) )
             continue;
