@@ -176,6 +176,30 @@ static inline int          Nf_CfgCompl( Nf_Cfg_t Cfg, int i )                   
   SeeAlso     []
 
 ***********************************************************************/
+static inline int Nf_IsWhitelistedName( const char *n )
+{
+    if ( n == NULL ) return 0;
+    /* whitelist: INV_*, NAND*, DFF* */
+    return (strncmp(n, "INV", 3) == 0) ||
+           (strncmp(n, "NAND", 4) == 0);
+}
+static const char * Nf_GateName( Nf_Man_t *p, int gateId )
+{
+    // 0/1 are the synthetic CONST cells ABC installs
+    if ( gateId == 0 ) return "_const0_";
+    if ( gateId == 1 ) return "_const1_";
+
+    // Get the library cell by id
+    Mio_Cell2_t * cell = Nf_ManCell( p, gateId );
+    if ( cell == NULL )
+        return "<null>";
+
+    // Prefer accessor if present; the field is typically the name string.
+    // In most ABC trees this works:
+    //   return Mio_Cell2ReadName( cell );
+    // If your build doesn't have that accessor, use the field directly:
+    return cell->pName ? cell->pName : "<noname>";
+}
 int Nf_StoCellIsDominated( Mio_Cell2_t * pCell, int * pFans, int * pProf )
 {
     int k;
@@ -1858,7 +1882,15 @@ void Nf_ManElaBestMatchOne( Nf_Man_t * p, int iObj, int c, int * pCut, int * pCu
         pMb->Cfg = Nf_Int2Cfg(0);
         pMb->fBest = 1;
         // compare
-        if ( pRes->F > pMb->F + NF_EPSILON || (pRes->F > pMb->F - NF_EPSILON && pRes->D > pMb->D) )
+        printf("Nf_ManElaBestMatchOne_specialCases: compare %s and %s\n", Nf_GateName(p, pMb->Gate),Nf_GateName(p, pRes->Gate));
+        if (Nf_IsWhitelistedName(Nf_GateName(p, pMb->Gate)) && !Nf_IsWhitelistedName(Nf_GateName(p, pRes->Gate))){
+            *pRes = *pMb;
+            printf("swap because of names\n");
+        }
+        else if (!Nf_IsWhitelistedName(Nf_GateName(p, pMb->Gate)) && Nf_IsWhitelistedName(Nf_GateName(p, pRes->Gate))){
+            printf("skip comparison because names\n");
+        }
+        else if ( pRes->F > pMb->F + NF_EPSILON || (pRes->F > pMb->F - NF_EPSILON && pRes->D > pMb->D) )
             *pRes = *pMb;
         return;
     }
@@ -1894,9 +1926,19 @@ void Nf_ManElaBestMatchOne( Nf_Man_t * p, int iObj, int c, int * pCut, int * pCu
         // compute area
         pMb->F = Scl_Int2Flt((int)Nf_MatchRefArea(p, iObj, c, pMb, Required));
         // compare
-        if ( pRes->F > pMb->F + NF_EPSILON || (pRes->F > pMb->F - NF_EPSILON && pRes->D > pMb->D) )
+        printf("Nf_ManElaBestMatchOne: compare %s and %s\n", Nf_GateName(p, pMb->Gate),Nf_GateName(p, pRes->Gate));
+        if (Nf_IsWhitelistedName(Nf_GateName(p, pMb->Gate)) && !Nf_IsWhitelistedName(Nf_GateName(p, pRes->Gate))){
+            *pRes = *pMb;
+            printf("swap because of names\n");
+        }
+        else if (!Nf_IsWhitelistedName(Nf_GateName(p, pMb->Gate)) && Nf_IsWhitelistedName(Nf_GateName(p, pRes->Gate))){
+            printf("skip comparison because names\n");
+            continue;
+        }
+        else if ( pRes->F > pMb->F + NF_EPSILON || (pRes->F > pMb->F - NF_EPSILON && pRes->D > pMb->D) )
             *pRes = *pMb;
     }
+    printf("Finally choose %s\n", Nf_GateName(p, pRes->Gate));
 }
 void Nf_ManElaBestMatch( Nf_Man_t * p, int iObj, int c, Nf_Mat_t * pRes, int Required )
 {
