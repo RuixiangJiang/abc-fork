@@ -1155,7 +1155,7 @@ void Nf_ManCutMatchOne( Nf_Man_t * p, int iObj, int * pCut, int * pCutSet )
     Vec_Int_t * vArr = Vec_WecEntry( p->vTt2Match, Abc_Lit2Var(iFuncLit) );
     int i, k, c, Info, Offset, iFanin, fComplF;
     int ArrivalD, ArrivalA;
-    Nf_Mat_t * pD, * pA;
+    Nf_Mat_t * pD, * pA; // delay-best match and area-best match
     // assign fanins matches
     Nf_Obj_t * pBestF[NF_LEAF_MAX];
     for ( i = 0; i < nFans; i++ )
@@ -1216,8 +1216,27 @@ void Nf_ManCutMatchOne( Nf_Man_t * p, int iObj, int * pCut, int * pCutSet )
         if ( k < nFans )
             continue;
         // select best Cfgch
-        if ( pD->D > Delay )
-        {
+        const char *candName = Nf_GateName( p, pC->Id );
+        const char *incDName = Nf_GateName( p, pD->Gate );
+        const char *incAName = Nf_GateName( p, pA->Gate );
+        int candWL = Nf_IsWhitelistedName( candName );
+        int incDWL = Nf_IsWhitelistedName( incDName );
+        int incAWL = Nf_IsWhitelistedName( incAName );
+
+        // printf("update delay-best candidates: comparing %s and %s\n", candName, incDName);
+        if ( candWL && !incDWL ){
+            // promote whitelist candidate regardless of numeric tie-breakers
+            pD->D    = Delay;
+            pD->F    = AreaF;
+            pD->CutH = Nf_CutHandle(pCutSet, pCut);
+            pD->Gate = pC->Id;
+            pD->Cfg  = Cfg; pD->Cfg.fCompl = 0;
+            // printf("no updation because of names.\n");
+        }
+        else if ( !candWL && incDWL ){
+            // keep incumbent whitelist; do nothing
+        }
+        else if ( pD->D > Delay ){
             pD->D = Delay;
             pD->F = AreaF;
             pD->CutH = Nf_CutHandle(pCutSet, pCut);
@@ -1226,8 +1245,19 @@ void Nf_ManCutMatchOne( Nf_Man_t * p, int iObj, int * pCut, int * pCutSet )
             pD->Cfg.fCompl = 0;
         }
 
-        if ( pA->F > AreaF + NF_EPSILON )
-        {
+        // printf("update area-best candidates: comparing %s and %s\n", candName, incAName);
+        if ( candWL && !incAWL ){
+            pA->D    = Delay;
+            pA->F    = AreaF;
+            pA->CutH = Nf_CutHandle(pCutSet, pCut);
+            pA->Gate = pC->Id;
+            pA->Cfg  = Cfg; pA->Cfg.fCompl = 0;
+            // printf("no updation because of names.\n");
+        }
+        else if ( !candWL && incAWL ){
+            // keep incumbent whitelist
+        }
+        else if ( pA->F > AreaF + NF_EPSILON ){
             pA->D = Delay;
             pA->F = AreaF;
             pA->CutH = Nf_CutHandle(pCutSet, pCut);
@@ -1882,13 +1912,13 @@ void Nf_ManElaBestMatchOne( Nf_Man_t * p, int iObj, int c, int * pCut, int * pCu
         pMb->Cfg = Nf_Int2Cfg(0);
         pMb->fBest = 1;
         // compare
-        printf("Nf_ManElaBestMatchOne_specialCases: compare %s and %s\n", Nf_GateName(p, pMb->Gate),Nf_GateName(p, pRes->Gate));
+        // printf("Nf_ManElaBestMatchOne_specialCases: compare %s and %s\n", Nf_GateName(p, pMb->Gate),Nf_GateName(p, pRes->Gate));
         if (Nf_IsWhitelistedName(Nf_GateName(p, pMb->Gate)) && !Nf_IsWhitelistedName(Nf_GateName(p, pRes->Gate))){
             *pRes = *pMb;
-            printf("swap because of names\n");
+            // printf("swap because of names\n");
         }
         else if (!Nf_IsWhitelistedName(Nf_GateName(p, pMb->Gate)) && Nf_IsWhitelistedName(Nf_GateName(p, pRes->Gate))){
-            printf("skip comparison because names\n");
+            // printf("skip comparison because names\n");
         }
         else if ( pRes->F > pMb->F + NF_EPSILON || (pRes->F > pMb->F - NF_EPSILON && pRes->D > pMb->D) )
             *pRes = *pMb;
@@ -1926,19 +1956,19 @@ void Nf_ManElaBestMatchOne( Nf_Man_t * p, int iObj, int c, int * pCut, int * pCu
         // compute area
         pMb->F = Scl_Int2Flt((int)Nf_MatchRefArea(p, iObj, c, pMb, Required));
         // compare
-        printf("Nf_ManElaBestMatchOne: compare %s and %s\n", Nf_GateName(p, pMb->Gate),Nf_GateName(p, pRes->Gate));
+        // printf("Nf_ManElaBestMatchOne: compare %s and %s\n", Nf_GateName(p, pMb->Gate),Nf_GateName(p, pRes->Gate));
         if (Nf_IsWhitelistedName(Nf_GateName(p, pMb->Gate)) && !Nf_IsWhitelistedName(Nf_GateName(p, pRes->Gate))){
             *pRes = *pMb;
-            printf("swap because of names\n");
+            // printf("swap because of names\n");
         }
         else if (!Nf_IsWhitelistedName(Nf_GateName(p, pMb->Gate)) && Nf_IsWhitelistedName(Nf_GateName(p, pRes->Gate))){
-            printf("skip comparison because names\n");
+            // printf("skip comparison because names\n");
             continue;
         }
         else if ( pRes->F > pMb->F + NF_EPSILON || (pRes->F > pMb->F - NF_EPSILON && pRes->D > pMb->D) )
             *pRes = *pMb;
     }
-    printf("Finally choose %s\n", Nf_GateName(p, pRes->Gate));
+    // printf("Finally choose %s\n", Nf_GateName(p, pRes->Gate));
 }
 void Nf_ManElaBestMatch( Nf_Man_t * p, int iObj, int c, Nf_Mat_t * pRes, int Required )
 {
