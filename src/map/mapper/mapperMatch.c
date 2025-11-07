@@ -104,8 +104,11 @@ void Map_MatchClean( Map_Match_t * pMatch )
 int Map_MatchCompare( Map_Man_t * pMan, Map_Match_t * pM1, Map_Match_t * pM2, int fDoingArea )
 {
   // Hard preference: if only one candidate is INV/NAND, pick it.
+  printf("Enter map match compare\n");
+  Abc_Print(1, "Map mapchCOMP: enter\n");
   if ( pM1 && pM1->pSuperBest && pM2 && pM2->pSuperBest )
   {
+    printf("compare %s and %s\n", Mio_GateReadName( pM1->pSuperBest->pRoot ),Mio_GateReadName( pM2->pSuperBest->pRoot ));
       int a1 = Map_SuperIsAllowedInvNand( pM1->pSuperBest );
       int a2 = Map_SuperIsAllowedInvNand( pM2->pSuperBest );
       if ( a1 && !a2 ) return 0; // keep current best
@@ -620,7 +623,7 @@ int Map_MappingMatches( Map_Man_t * p )
     ProgressBar * pProgress;
     Map_Node_t * pNode;
     int i;
-
+Abc_Print(1, "Map_mappingmatches: enter\n");
     assert( p->fMappingMode >= 0 && p->fMappingMode <= 4 );
 
     // use the externally given PI arrival times

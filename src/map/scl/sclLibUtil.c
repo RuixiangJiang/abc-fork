@@ -245,8 +245,21 @@ void Abc_SclShortNames( SC_Lib * p )
   SeeAlso     []
 
 ***********************************************************************/
+static inline int Scl_IsPreferred(const char *name) {
+    return name && (!strncmp(name,"INV_",4) || !strncmp(name,"NAND2_",6) || !strncmp(name,"DFF",3));
+}
 static int Abc_SclCompareCells( SC_Cell ** pp1, SC_Cell ** pp2 )
 {
+    printf("Compare %s and %s: ", (*pp1)->pName, (*pp2)->pName);
+    if (Scl_IsPreferred((*pp1)->pName) && !Scl_IsPreferred((*pp2)->pName)){
+        printf("%s wins because it is in the white list\n", (*pp1)->pName);
+        return 1;
+    }
+    if (!Scl_IsPreferred((*pp1)->pName) && Scl_IsPreferred((*pp2)->pName)){
+        printf("%s wins because it is in the white list\n", (*pp2)->pName);
+        return 1;
+    }
+    printf("continue to other comparisons\n");
     if ( (*pp1)->n_inputs < (*pp2)->n_inputs )
         return -1;
     if ( (*pp1)->n_inputs > (*pp2)->n_inputs )
@@ -294,6 +307,7 @@ void Abc_SclLinkCells( SC_Lib * p )
         Vec_PtrClear( vList );
         SC_RingForEachCell( pRepr, pCell, i )
             Vec_PtrPush( vList, pCell );
+        printf("Enter inner qsort\n");
         qsort( (void *)Vec_PtrArray(vList), (size_t)Vec_PtrSize(vList), sizeof(void *), (int(*)(const void *,const void *))Abc_SclCompareCells );
         // create new representative
         pRepr = (SC_Cell *)Vec_PtrEntry( vList, 0 );

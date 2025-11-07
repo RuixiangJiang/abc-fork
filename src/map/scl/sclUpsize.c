@@ -272,10 +272,19 @@ void Abc_SclFindNodesToUpdate( Abc_Obj_t * pPivot, Vec_Int_t ** pvNodes, Vec_Int
   SeeAlso     []
 
 ***********************************************************************/
+static inline int Scl_IsPreferredName( const char *n )
+{
+    return n && (
+        !strncmp(n, "INV_",   4) ||
+        !strncmp(n, "NAND2_", 6) ||
+        !strncmp(n, "DFF",    3)
+    );
+}
 int Abc_SclFindBestCell( SC_Man * p, Abc_Obj_t * pObj, Vec_Int_t * vRecalcs, Vec_Int_t * vEvals, int Notches, int DelayGap, float * pGainBest )
 {
     SC_Cell * pCellOld, * pCellNew;
-    float dGain, dGainBest;
+    float dGain, dGainBestEff, dGainBestRaw;
+    const float kDislikePenalty = 1e6f;
     int k, gateBest, NoChange = 0;
     // save old gate, timing, fanin load
     pCellOld = Abc_SclObjCell( pObj );
@@ -284,7 +293,8 @@ int Abc_SclFindBestCell( SC_Man * p, Abc_Obj_t * pObj, Vec_Int_t * vRecalcs, Vec
     Abc_SclLoadStore( p, pObj );
     // try different gate sizes for this node
     gateBest = -1;
-    dGainBest = -DelayGap;
+    dGainBestEff   = -(float)DelayGap;  // effective (with bias)
+    dGainBestRaw   = -(float)DelayGap;
     SC_RingForEachCell( pCellOld, pCellNew, k )
     {
         if ( pCellNew == pCellOld )
@@ -301,14 +311,22 @@ int Abc_SclFindBestCell( SC_Man * p, Abc_Obj_t * pObj, Vec_Int_t * vRecalcs, Vec
         Abc_SclLoadRestore( p, pObj );
         // save best gain
         dGain = Abc_SclEvalPerform( p, vEvals );
-        if ( dGainBest < dGain )
+        const int preferred = Scl_IsPreferredName( pCellNew->pName );
+        const float dEff = preferred ? dGain : (dGain - kDislikePenalty);
+        printf("As for cell %s: score is %.2f, so ", pCellNew->pName, dEff);
+
+        if ( dEff > dGainBestEff )
         {
-            dGainBest = dGain;
-            gateBest = pCellNew->Id;
-            NoChange = 1;
+            dGainBestEff = dEff;     // effective, for selection/early-stop
+            dGainBestRaw = dGain;    // raw, to return/report
+            gateBest     = pCellNew->Id;
+            NoChange     = 1;
+            printf("update gateBest\n");
         }
-        else if ( NoChange )
+        else if ( NoChange ){
             NoChange++;
+            printf("remain the same\n");
+        }
         if ( NoChange == 4 )
             break;
 //        printf( "%.2f ", dGain );
@@ -318,7 +336,7 @@ int Abc_SclFindBestCell( SC_Man * p, Abc_Obj_t * pObj, Vec_Int_t * vRecalcs, Vec
     // put back old cell and timing
     Abc_SclObjSetCell( pObj, pCellOld );
     Abc_SclConeRestore( p, vRecalcs );
-    *pGainBest = dGainBest;
+    *pGainBest = dGainBestRaw;
     return gateBest;
 }
 
