@@ -19,6 +19,9 @@
 ***********************************************************************/
 
 #include <float.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 #include "gia.h"
 #include "misc/st/st.h"
 #include "map/mio/mio.h"
@@ -180,8 +183,8 @@ static inline int Nf_IsWhitelistedName( const char *n )
 {
     if ( n == NULL ) return 0;
     /* whitelist: INV_*, NAND*, DFF* */
-    return (strncmp(n, "INV", 3) == 0) ||
-           (strncmp(n, "NAND", 4) == 0);
+    // return (strncmp(n, "INV", 3) == 0) || (strncmp(n, "NAND", 4) == 0);
+    return (strncmp(n, "NOR2", 4) == 0) || (strncmp(n, "AND2", 4) == 0);
 }
 static const char * Nf_GateName( Nf_Man_t *p, int gateId )
 {
@@ -200,6 +203,62 @@ static const char * Nf_GateName( Nf_Man_t *p, int gateId )
     // If your build doesn't have that accessor, use the field directly:
     return cell->pName ? cell->pName : "<noname>";
 }
+static int Nf_GetEnvInt( const char *key, int defval )
+{
+    const char *s = getenv(key);
+    return s ? atoi(s) : defval;
+}
+
+static void Nf_PrintCfgInputs( Nf_Cfg_t Cfg, int nFans )
+{
+    int iFanin, fComplF, k;
+    printf("      cfg: root_compl=%d  inputs:", (int)Cfg.fCompl);
+    Nf_CfgForEachVarCompl( Cfg, nFans, iFanin, fComplF, k )
+        printf(" [%d <- %d%s]", k, iFanin, fComplF ? "'" : "");
+    printf("\n");
+}
+
+static inline const char * Nf_GateNameById( Nf_Man_t *p, int iGate )
+{
+    Mio_Cell2_t *pC = Nf_ManCell( p, iGate );
+    return pC ? pC->pName : "(null)";
+}
+
+void Nf_DebugPrintTt2Match( Nf_Man_t *p, int tt_max, int match_max )
+{
+    int t, i, Info, Offset, printed;
+    int nTT = Vec_WecSize( p->vTt2Match );
+    if (tt_max <= 0 || tt_max > nTT) tt_max = nTT;
+
+    printf("TT2MATCH: total TT slots = %d\n", nTT);
+
+    for (t = 0; t < tt_max; t++)
+    {
+        Vec_Int_t *vArr = Vec_WecEntry( p->vTt2Match, t );
+        int nPairs = Vec_IntSize( vArr ) / 2;
+        if (nPairs == 0) continue;
+
+        printf("  TT[%d]: %d match(es)\n", t, nPairs);
+
+        printed = 0;
+        Vec_IntForEachEntryDouble( vArr, Info, Offset, i )
+        {
+            Mio_Cell2_t *pC = Nf_ManCell( p, Info );
+            Nf_Cfg_t Cfg    = Nf_Int2Cfg( Offset );
+            const char *name = pC ? pC->pName : "(null)";
+            int nFans        = pC ? (int)pC->nFanins : 0;
+
+            printf("    #%d: gate_id=%d  name=%s  fanins=%d  areaF=%.4f\n",
+                   printed, pC ? pC->Id : -1, name, nFans, pC ? pC->AreaF : -1.0f);
+            Nf_PrintCfgInputs( Cfg, nFans );
+
+            if (++printed == match_max && match_max > 0)
+                break;
+        }
+    }
+}
+
+// Below are functions provided by abc
 int Nf_StoCellIsDominated( Mio_Cell2_t * pCell, int * pFans, int * pProf )
 {
     int k;
@@ -326,7 +385,7 @@ Mio_Cell2_t * Nf_StoDeriveMatches( Vec_Mem_t * vTtMem, Vec_Wec_t * vTt2Match, in
     for ( i = 1; i <= 6; i++ )
         nPerms[i] = Extra_Factorial( i );
     pCells = Mio_CollectRootsNewDefault2( 6, pnCells, fVerbose );
-    if ( pCells != NULL )
+    if ( pCells != NULL ) // add pCell with name (pCells+i)->pName
     for ( i = 2; i < *pnCells; i++ )
         Nf_StoCreateGateMaches( vTtMem, vTt2Match, pCells+i, pComp, pPerm, nPerms, vProfs, vStore, fPinFilter, fPinPerm, fPinQuick );
     for ( i = 1; i <= 6; i++ )
@@ -1223,7 +1282,7 @@ void Nf_ManCutMatchOne( Nf_Man_t * p, int iObj, int * pCut, int * pCutSet )
         int incDWL = Nf_IsWhitelistedName( incDName );
         int incAWL = Nf_IsWhitelistedName( incAName );
 
-        // printf("update delay-best candidates: comparing %s and %s\n", candName, incDName);
+        // printf("update delay-best candidates: comparing candidate %s and current best pD %s - ", candName, incDName);
         if ( candWL && !incDWL ){
             // promote whitelist candidate regardless of numeric tie-breakers
             pD->D    = Delay;
@@ -1231,9 +1290,10 @@ void Nf_ManCutMatchOne( Nf_Man_t * p, int iObj, int * pCut, int * pCutSet )
             pD->CutH = Nf_CutHandle(pCutSet, pCut);
             pD->Gate = pC->Id;
             pD->Cfg  = Cfg; pD->Cfg.fCompl = 0;
-            // printf("no updation because of names.\n");
+            // printf("candidate wins because of its name, update best %s to candidate\n", incDName);
         }
         else if ( !candWL && incDWL ){
+            // printf("canditate loses because of its name, keep best %s\n", incDName);
             // keep incumbent whitelist; do nothing
         }
         else if ( pD->D > Delay ){
@@ -1243,18 +1303,23 @@ void Nf_ManCutMatchOne( Nf_Man_t * p, int iObj, int * pCut, int * pCutSet )
             pD->Gate = pC->Id;
             pD->Cfg = Cfg;
             pD->Cfg.fCompl = 0;
+            // printf("canditate loses because of its delay, keep best %s\n", incDName);
+        }
+        else{
+          // printf("candidate wins because of its delay, update best %s to candidate\n", incDName);
         }
 
-        // printf("update area-best candidates: comparing %s and %s\n", candName, incAName);
+        // printf("update area-best candidates: comparing candidate %s and current best pA %s - ", candName, incAName);
         if ( candWL && !incAWL ){
             pA->D    = Delay;
             pA->F    = AreaF;
             pA->CutH = Nf_CutHandle(pCutSet, pCut);
             pA->Gate = pC->Id;
             pA->Cfg  = Cfg; pA->Cfg.fCompl = 0;
-            // printf("no updation because of names.\n");
+            // printf("candidate wins because of its name, update best %s to candidate\n", incAName);
         }
         else if ( !candWL && incAWL ){
+            // printf("canditate loses because of its name, keep best %s\n", incAName);
             // keep incumbent whitelist
         }
         else if ( pA->F > AreaF + NF_EPSILON ){
@@ -1264,6 +1329,10 @@ void Nf_ManCutMatchOne( Nf_Man_t * p, int iObj, int * pCut, int * pCutSet )
             pA->Gate = pC->Id;
             pA->Cfg = Cfg;
             pA->Cfg.fCompl = 0;
+            // printf("canditate loses because of its area, keep best %s\n", incAName);
+        }
+        else{
+          // printf("candidate wins because of its area, update best %s to candidate\n", incAName);
         }
     }
 }
@@ -2635,6 +2704,12 @@ Gia_Man_t * Nf_ManPerformMappingInt( Gia_Man_t * pGia, Jf_Par_t * pPars )
     p = Nf_StoCreate( pCls, pPars );
     if ( p == NULL )
         return NULL;
+    if ( 1 ){
+      int tt_max    = 64;   /* cap rows */
+      int match_max = 16;   /* cap per row */
+      printf("WL: dumping vTt2Match (tt_max=%d match_max=%d)\n", tt_max, match_max);
+      Nf_DebugPrintTt2Match( p, tt_max, match_max );
+    }
 //    if ( p->pManTim ) Tim_ManPrint( p->pManTim );
     p->pGia->iFirstNonPiId = p->pManTim ? Tim_ManPiNum(p->pManTim) : Gia_ManCiNum(p->pGia);
     p->pGia->iFirstPoId    = p->pManTim ? Gia_ManCoNum(p->pGia) - Tim_ManPoNum(p->pManTim) : 0;
