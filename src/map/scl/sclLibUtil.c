@@ -524,7 +524,7 @@ int Abc_SclComputeParametersPin( SC_Lib * p, SC_Cell * pCell, int iPin, float Sl
     *pLD = (ArrOut2.rise - ArrOut1.rise) / ((Load2.rise - Load1.rise) / SC_CellPinCap(pCell, iPin));
     // get constant
     *pPD = ArrOut0.rise;
-    return 1;
+    return 1; 
 }
 int Abc_SclComputeParametersCell( SC_Lib * p, SC_Cell * pCell, float Slew, float * pLD, float * pPD )
 {

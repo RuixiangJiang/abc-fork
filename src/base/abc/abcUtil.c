@@ -1597,7 +1597,7 @@ int Abc_NtkPrepareTwoNtks( FILE * pErr, Abc_Ntk_t * pNtk, char ** argv, int argc
             Abc_NtkDelete( pNtk1 );
         pNtk1 = pNtkTemp;
         *pfDelete1 = 1;
-    }
+    }https://chatgpt.com/c/69096892-6d6c-8327-b9fa-6da9a9c73ad8
     if ( !Abc_NtkIsStrash(pNtk2) )
     {
         pNtkTemp = Abc_NtkStrash( pNtk2, 0, 1, 0 );

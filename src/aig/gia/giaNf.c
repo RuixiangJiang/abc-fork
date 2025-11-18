@@ -1241,7 +1241,7 @@ void Nf_ManCutMatchOne( Nf_Man_t * p, int iObj, int * pCut, int * pCutSet )
     Vec_IntForEachEntryDouble( vArr, Info, Offset, i )
     {
         Nf_Cfg_t Cfg   = Nf_Int2Cfg(Offset);
-        Mio_Cell2_t*pC = Nf_ManCell( p, Info );
+        Mio_Cell2_t*pC = Nf_ManCell( p, Info ); // the Info-th cell in cell list p, serves as the current cell for iteration
         int fCompl     = Cfg.fCompl ^ fComplExt;
         int Required   = Nf_ObjRequired( p, iObj, fCompl ), Delay = 0;
         Nf_Mat_t * pD  = &pBest->M[fCompl][0];
@@ -1249,6 +1249,9 @@ void Nf_ManCutMatchOne( Nf_Man_t * p, int iObj, int * pCut, int * pCutSet )
         float AreaF    = pC->AreaF;
         assert( nFans == (int)pC->nFanins );
         Nf_CfgForEachVarCompl( Cfg, nFans, iFanin, fComplF, k )
+        // for (k = 0; k < nFans && ((iFanin = Nf_CfgVar(Cfg, k)), 1) && ((fComplF = Nf_CfgCompl(Cfg, k)), 1); k++)
+        // Nf_CfgVar(Cfg, k) = (Cfg.Perm >> (k<<2)) & 15
+        // Nf_CfgCompl(Cfg, k) = (Cfg.Phase >> k) & 1
         {
             ArrivalD  = pBestF[iFanin]->M[fComplF][0].D;
             ArrivalA  = pBestF[iFanin]->M[fComplF][1].D;
