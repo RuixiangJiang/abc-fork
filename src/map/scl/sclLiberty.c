@@ -789,7 +789,7 @@ long Scl_LibertyReadCellOutputNum( Scl_Tree_t * p, Scl_Item_t * pCell )
 
 ***********************************************************************/
 static inline int Scl_CellIsAllowed(const char* n) {
-  return n && (0==strncmp(n,"INV_",4) || 0==strncmp(n,"NAND2_",6) || 0==strncmp(n,"DFFRS_",6));
+  return n && !(0==strncmp(n,"CamoBlock",9));
 }
 Vec_Str_t * Scl_LibertyReadGenlibStr( Scl_Tree_t * p, int fVerbose, SC_DontUse dont_use )
 {
@@ -801,12 +801,12 @@ Vec_Str_t * Scl_LibertyReadGenlibStr( Scl_Tree_t * p, int fVerbose, SC_DontUse d
     Vec_StrPrintStr( vStr, "GATE          _const1_  0.000000  z=CONST1;\n" );
     Scl_ItemForEachChildName( p, Scl_LibertyRoot(p), pCell, "cell" )
     {
-      // const char *name = Scl_LibertyReadString(p, pCell->Head);
+      const char *name = Scl_LibertyReadString(p, pCell->Head);
       // printf(  "DBG: consider cell \"%s\".\n", name );
-    //   if (!Scl_CellIsAllowed(Scl_LibertyReadString(p, pCell->Head))){
-    //     printf("dddddd");
-    //     continue;
-    //   }
+      if (!Scl_CellIsAllowed(Scl_LibertyReadString(p, pCell->Head))){
+        // printf("dddddd");
+        continue;
+      }
 
         if ( Scl_LibertyReadCellIsFlop(p, pCell) )
         {
@@ -828,10 +828,10 @@ Vec_Str_t * Scl_LibertyReadGenlibStr( Scl_Tree_t * p, int fVerbose, SC_DontUse d
             if ( fVerbose )  printf( "Scl_LibertyReadGenlib() skipped cell \"%s\" without logic function.\n", Scl_LibertyReadString(p, pCell->Head) );
             continue;
         }
-      // if ( !Scl_CellIsAllowed(name) ) {
+      if ( !Scl_CellIsAllowed(name) ) {
           // printf(  "DBG: skip (not INV_/NAND2_/DFFRS_): \"%s\".\n", name );
-          // continue;
-      // }
+          continue;
+      }
         // iterate through output pins
         Scl_ItemForEachChildName( p, pCell, pOutput, "pin" )
         {
@@ -1556,12 +1556,12 @@ Vec_Str_t * Scl_LibertyReadSclStr( Scl_Tree_t * p, int fVerbose, int fVeryVerbos
     nCells = 0;
     Scl_ItemForEachChildName( p, Scl_LibertyRoot(p), pCell, "cell" )
     {
-      // char *name = Scl_LibertyReadString(p, pCell->Head);
-      // printf( "DBG: consider cell \"%s\".\n", name );
-    // if (!Scl_CellIsAllowed(Scl_LibertyReadString(p, pCell->Head))){
-    //     printf("bbbb");
-    //     continue;
-    //   }
+        char *name = Scl_LibertyReadString(p, pCell->Head);
+        // printf( "DBG: consider cell \"%s\".\n", name );
+        if (!Scl_CellIsAllowed(Scl_LibertyReadString(p, pCell->Head))){
+            // printf("bbbb");
+            continue;
+        }
         if ( Scl_LibertyReadCellIsFlop(p, pCell) )
         {
             if ( fVeryVerbose )  printf( "Scl_LibertyReadGenlib() skipped sequential cell \"%s\".\n", Scl_LibertyReadString(p, pCell->Head) );
@@ -1598,10 +1598,10 @@ Vec_Str_t * Scl_LibertyReadSclStr( Scl_Tree_t * p, int fVerbose, int fVeryVerbos
             nSkipped[5]++;
             continue;
         }
-      // if ( !Scl_CellIsAllowed(name) ) {
+      if ( !Scl_CellIsAllowed(name) ) {
           // printf( "DBG: skip (not INV_/NAND2_/DFFRS_): \"%s\".\n", name );
-          // continue;
-      // }
+          continue;
+      }
         nCells++;
     }
     // read cells
@@ -1610,10 +1610,10 @@ Vec_Str_t * Scl_LibertyReadSclStr( Scl_Tree_t * p, int fVerbose, int fVeryVerbos
     Vec_StrPut_( vOut );
     Scl_ItemForEachChildName( p, Scl_LibertyRoot(p), pCell, "cell" )
     {
-    //     if (!Scl_CellIsAllowed(Scl_LibertyReadString(p, pCell->Head))){
-    //     printf("cccc");
-    //     continue;
-    //   }
+        if (!Scl_CellIsAllowed(Scl_LibertyReadString(p, pCell->Head))){
+          // printf("cccc");
+          continue;
+        }
         if ( Scl_LibertyReadCellIsFlop(p, pCell) )
             continue;
         if ( Scl_LibertyReadCellIsDontUse(p, pCell, dont_use))
