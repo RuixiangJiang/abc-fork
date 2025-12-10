@@ -230,7 +230,7 @@ void Nf_DebugPrintTt2Match( Nf_Man_t *p, int tt_max, int match_max )
     int nTT = Vec_WecSize( p->vTt2Match );
     if (tt_max <= 0 || tt_max > nTT) tt_max = nTT;
 
-    printf("TT2MATCH: total TT slots = %d\n", nTT);
+    // printf("TT2MATCH: total TT slots = %d\n", nTT);
 
     for (t = 0; t < tt_max; t++)
     {
@@ -238,7 +238,7 @@ void Nf_DebugPrintTt2Match( Nf_Man_t *p, int tt_max, int match_max )
         int nPairs = Vec_IntSize( vArr ) / 2;
         if (nPairs == 0) continue;
 
-        printf("  TT[%d]: %d match(es)\n", t, nPairs);
+        // printf("  TT[%d]: %d match(es)\n", t, nPairs);
 
         printed = 0;
         Vec_IntForEachEntryDouble( vArr, Info, Offset, i )
@@ -248,8 +248,8 @@ void Nf_DebugPrintTt2Match( Nf_Man_t *p, int tt_max, int match_max )
             const char *name = pC ? pC->pName : "(null)";
             int nFans        = pC ? (int)pC->nFanins : 0;
 
-            printf("    #%d: gate_id=%d  name=%s  fanins=%d  areaF=%.4f\n",
-                   printed, pC ? pC->Id : -1, name, nFans, pC ? pC->AreaF : -1.0f);
+            // printf("    #%d: gate_id=%d  name=%s  fanins=%d  areaF=%.4f\n",
+            //        printed, pC ? pC->Id : -1, name, nFans, pC ? pC->AreaF : -1.0f);
             Nf_PrintCfgInputs( Cfg, nFans );
 
             if (++printed == match_max && match_max > 0)
